@@ -2,13 +2,22 @@ module Game where
 
 import Prelude
 
+import Data.Array (any)
 import Data.Array as Array
-import Data.Maybe (fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe, isJust)
+import Effect (Effect)
+import Effect.Random (randomInt)
 
 type Coord = 
     { x :: Int
     , y :: Int
     }
+
+randomCoord :: Screen -> Effect Coord
+randomCoord screen = do
+    x <- randomInt 0 screen.width
+    y <- randomInt 0 screen.height
+    pure { x, y }
 
 type Screen =
     { width :: Int
@@ -22,9 +31,14 @@ type Snake =
     , nextDirection :: Direction
     }
 
+isInside :: Coord -> Snake -> Boolean
+isInside pos snake =
+    snake.head == pos || any (_ == pos) snake.tail
+
 type State =
     { screen :: Screen
     , snake :: Snake
+    , apple :: Maybe Coord
     }
 
 initialize :: Screen -> State
@@ -36,6 +50,7 @@ initialize screen =
         , curDirection: Right
         , nextDirection: Right
         }
+    , apple: Nothing
     }
     where
     head =
@@ -59,9 +74,12 @@ opposite Down = Up
 opposite Left = Right
 opposite Right = Left
 
-iter :: State -> State
-iter state =
-    state { snake = move state.snake }
+iter :: State -> Effect State
+iter state = do
+    let eaten = tryEat state
+    withApple <- newApple eaten
+    let moved = withApple { snake = move withApple.snake }
+    pure moved
 
 move :: Snake -> Snake
 move snake = 
@@ -71,6 +89,35 @@ move snake =
     newTail = fromMaybe [] do
         { init } <- Array.unsnoc snake.tail
         pure $ Array.cons snake.head init
+
+tryEat :: State -> State
+tryEat state@{ snake, apple: Just pos } 
+    | pos `isInside` snake =
+        state { apple = Nothing, snake = grow snake }
+tryEat state = state
+
+grow :: Snake -> Snake
+grow snake =
+    snake { tail = newTail }
+    where
+    newTail = fromMaybe [ snake.head ] $ do
+        { last } <- Array.unsnoc snake.tail
+        pure $ Array.snoc snake.tail last
+
+newApple :: State -> Effect State
+newApple state
+    | isJust state.apple = 
+        pure state
+    | otherwise = do
+        pos <- findApple
+        pure $ state { apple = Just pos }
+    where
+      findApple = do
+        pos <- randomCoord state.screen
+        if not (pos `isInside` state.snake) then
+            pure pos
+        else
+            findApple
 
 translate :: Direction -> Coord -> Coord
 translate Up { x, y } = { x, y: y-1 }

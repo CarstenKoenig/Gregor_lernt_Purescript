@@ -11,14 +11,15 @@ import Game as Game
 import Graphics.Canvas (CanvasElement, Context2D, getCanvasElementById, getContext2D, withContext)
 import Graphics.Canvas as Canvas
 import Signal (Signal, (~>))
-import Signal (constant, foldp, merge, mergeMany, runSignal) as Signal
+import Signal (constant, merge, mergeMany, runSignal) as Signal
 import Signal.DOM (keyPressed) as Signal
+import Signal.Effect (foldEffect) as Signal
 import Signal.Time (every) as Signal
 
 main :: Effect Unit
 main = do
   log "Hey - Purescript is working"
-  let game = Game.initialize { width: 50, height: 50 }
+  game <- Game.newApple $ Game.initialize { width: 50, height: 50 }
   canvasElement <- getCanvasElementById "game"
   stateSig <- stateSignal game
   for_ canvasElement $ drawSignal stateSig >>> Signal.runSignal
@@ -26,14 +27,12 @@ main = do
 stateSignal :: Game.State -> Effect (Signal Game.State)
 stateSignal init = do
   dirSignal <- directionSignal
-  pure $
-    (tickSignal `Signal.merge` dirSignal)
-    # Signal.foldp (\change state -> change state) init
+  (tickSignal `Signal.merge` dirSignal) # Signal.foldEffect (\change state -> change state) init
 
-tickSignal :: Signal (Game.State -> Game.State)
+tickSignal :: Signal (Game.State -> Effect Game.State)
 tickSignal = Signal.every 500.0 $> Game.iter
 
-directionSignal :: Effect (Signal (Game.State -> Game.State))
+directionSignal :: Effect (Signal (Game.State -> Effect Game.State))
 directionSignal = do
   left <- keySignal 37 Game.Left
   right <- keySignal 39 Game.Right
@@ -41,15 +40,15 @@ directionSignal = do
   down <- keySignal 40 Game.Down
   pure $ fromMaybe doNothingSignal $ Signal.mergeMany [ left, right, up, down ]
   where
-  doNothingSignal :: Signal (Game.State -> Game.State)
-  doNothingSignal = Signal.constant identity
-  keySignal :: Int -> Game.Direction -> Effect (Signal (Game.State -> Game.State))
+  doNothingSignal :: Signal (Game.State -> Effect Game.State)
+  doNothingSignal = Signal.constant (identity >>> pure)
+  keySignal :: Int -> Game.Direction -> Effect (Signal (Game.State -> Effect Game.State))
   keySignal code dir = do
     signal <- Signal.keyPressed code 
     pure $ signal ~> onDown dir
-  onDown :: Game.Direction -> Boolean -> (Game.State -> Game.State)
-  onDown dir true = Game.changeDirection dir
-  onDown _ false = identity
+  onDown :: Game.Direction -> Boolean -> (Game.State -> Effect Game.State)
+  onDown dir true = Game.changeDirection dir >>> pure
+  onDown _ false = identity >>> pure
 
 drawSignal :: Signal Game.State -> CanvasElement -> Signal (Effect Unit)
 drawSignal stateSig canvasElement =
@@ -64,9 +63,15 @@ drawGame canvasEl game = do
   drawState ctx game
 
 drawState :: Context2D -> Game.State -> Effect Unit
-drawState ctx { screen, snake } =
-    drawSnake
+drawState ctx { screen, snake, apple } = do
+  for_ apple drawApple
+  drawSnake
   where
+  drawApple applePos =
+    withContext ctx $ do
+      Canvas.setStrokeStyle ctx "green"
+      Canvas.setFillStyle ctx "lightgreen"
+      drawBodyPart applePos
   drawSnake =
     withContext ctx $ do
       Canvas.setStrokeStyle ctx "red"
