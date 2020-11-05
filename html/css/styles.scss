@@ -4,5 +4,11 @@ body {
     height: 100vh;
     justify-content: center;
     align-items: center;
-    flex-direction: column-reverse;
+    flex-direction: column;
+}
+
+#game {
+    background-color: lightgrey;
+    height: min(80vh, 80vw);
+    width: min(80vh, 80vw);
 }
