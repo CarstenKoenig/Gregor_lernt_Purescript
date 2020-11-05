@@ -21,10 +21,6 @@ type Snake =
     , direction :: Direction
     }
 
-body :: Snake -> Array Coord
-body snake =
-    Array.cons snake.head snake.tail
-
 type State =
     { screen :: Screen
     , snake :: Snake
@@ -35,7 +31,7 @@ initialize screen =
     { screen
     , snake: 
         { head: mid
-        , tail: []
+        , tail: [ translate Left mid, translate Left (translate Left mid) ]
         , direction: Right
         }
     }
