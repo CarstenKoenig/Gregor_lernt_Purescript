@@ -24,6 +24,12 @@ type Screen =
     , height :: Int
     }
 
+warp :: Screen -> Coord -> Coord
+warp { width, height } { x, y } =
+    { x: x `mod` width 
+    , y: y `mod` height
+    }
+
 type Snake = 
     { head :: Coord
     , tail :: Array Coord
@@ -78,14 +84,16 @@ iter :: State -> Effect State
 iter state = do
     let eaten = tryEat state
     withApple <- newApple eaten
-    let moved = withApple { snake = move withApple.snake }
+    let moved = withApple { snake = move withApple.screen withApple.snake }
     pure moved
 
-move :: Snake -> Snake
-move snake = 
-    snake { head = newHead, tail = newTail, curDirection = snake.nextDirection }
+move :: Screen -> Snake -> Snake
+move screen snake = 
+    snake { head = newHead
+          , tail = newTail
+          , curDirection = snake.nextDirection }
     where
-    newHead = translate snake.nextDirection snake.head
+    newHead = warp screen $ translate snake.nextDirection snake.head
     newTail = fromMaybe [] do
         { init } <- Array.unsnoc snake.tail
         pure $ Array.cons snake.head init
