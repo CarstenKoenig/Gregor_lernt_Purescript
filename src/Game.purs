@@ -4,6 +4,7 @@ import Prelude
 
 import Data.Array (any)
 import Data.Array as Array
+import Data.Foldable (class Foldable)
 import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Effect (Effect)
 import Effect.Random (randomInt)
@@ -12,6 +13,10 @@ type Coord =
     { x :: Int
     , y :: Int
     }
+
+isInside :: forall f. Foldable f => Coord -> f Coord -> Boolean
+isInside pos poss =
+    any (_ == pos) poss
 
 randomCoord :: Screen -> Effect Coord
 randomCoord screen = do
@@ -37,9 +42,13 @@ type Snake =
     , nextDirection :: Direction
     }
 
-isInside :: Coord -> Snake -> Boolean
-isInside pos snake =
-    snake.head == pos || any (_ == pos) snake.tail
+body :: Snake -> Array Coord
+body snake =
+    snake.head `Array.cons` snake.tail
+
+isDead :: Snake -> Boolean
+isDead snake =
+    snake.head `isInside` snake.tail
 
 type State =
     { screen :: Screen
@@ -81,6 +90,7 @@ opposite Left = Right
 opposite Right = Left
 
 iter :: State -> Effect State
+iter state | isDead state.snake = pure state
 iter state = do
     let eaten = tryEat state
     withApple <- newApple eaten
@@ -99,8 +109,8 @@ move screen snake =
         pure $ Array.cons snake.head init
 
 tryEat :: State -> State
-tryEat state@{ snake, apple: Just pos } 
-    | pos `isInside` snake =
+tryEat state@{ snake, apple } 
+    | apple == Just snake.head =
         state { apple = Nothing, snake = grow snake }
 tryEat state = state
 
@@ -122,7 +132,7 @@ newApple state
     where
       findApple = do
         pos <- randomCoord state.screen
-        if not (pos `isInside` state.snake) then
+        if not (pos `isInside` body state.snake) then
             pure pos
         else
             findApple

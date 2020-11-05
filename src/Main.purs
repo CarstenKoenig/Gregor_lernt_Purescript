@@ -74,12 +74,20 @@ drawState ctx { screen, snake, apple } = do
       drawBodyPart applePos
   drawSnake =
     withContext ctx $ do
-      Canvas.setStrokeStyle ctx "red"
-      Canvas.setFillStyle ctx "pink"
-      drawBodyPart snake.head
-      Canvas.setStrokeStyle ctx "pink"
-      Canvas.setFillStyle ctx "red"
+      if Game.isDead snake then do
+        Canvas.setStrokeStyle ctx "grey"
+        Canvas.setFillStyle ctx "black"
+      else do
+        Canvas.setStrokeStyle ctx "pink"
+        Canvas.setFillStyle ctx "red"
       for_ snake.tail drawBodyPart
+      if Game.isDead snake then do
+        Canvas.setStrokeStyle ctx "black"
+        Canvas.setFillStyle ctx "grey"
+      else do
+        Canvas.setStrokeStyle ctx "red"
+        Canvas.setFillStyle ctx "pink"
+      drawBodyPart snake.head
   drawBodyPart bodyPos = do
     let 
       { x, y } = toCanvasPoint bodyPos
