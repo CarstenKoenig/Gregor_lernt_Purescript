@@ -1,0 +1,18 @@
+{
+  "name": "ps-intro",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./html/index.js",
+  "scripts": {
+    "start": "spago build && parcel ./html/index.html"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "parcel-bundler": "^1.12.4",
+    "purescript": "^0.13.8",
+    "sass": "^1.29.0",
+    "spago": "^0.17.0"
+  }
+}
