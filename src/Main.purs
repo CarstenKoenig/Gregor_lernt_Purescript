@@ -9,16 +9,32 @@ import Effect.Console (log)
 import Game as Game
 import Graphics.Canvas (CanvasElement, Context2D, getCanvasElementById, getContext2D, withContext)
 import Graphics.Canvas as Canvas
+import Signal (Signal, (~>))
+import Signal (foldp, runSignal) as Signal
+import Signal.Time (every) as Signal
 
 main :: Effect Unit
 main = do
   log "Hey - Purescript is working"
   let game = Game.initialize { width: 50, height: 50 }
   canvasElement <- getCanvasElementById "game"
-  for_ canvasElement (drawGame game)
+  for_ canvasElement $ drawSignal game >>> Signal.runSignal
 
-drawGame :: Game.State -> CanvasElement -> Effect Unit
-drawGame game canvasEl = do
+tickSignal :: Signal Unit
+tickSignal = void $ Signal.every 500.0
+
+stateSignal :: Game.State -> Signal Game.State
+stateSignal init =
+  Signal.foldp (\unit -> Game.iter) init tickSignal
+
+drawSignal :: Game.State -> CanvasElement -> Signal (Effect Unit)
+drawSignal init canvasElement =
+  stateSignal init ~> drawGame canvasElement 
+
+
+
+drawGame :: CanvasElement -> Game.State -> Effect Unit
+drawGame canvasEl game = do
   -- set coordinate-system to 0-999 / 0-999
   Canvas.setCanvasWidth canvasEl 1000.0
   Canvas.setCanvasHeight canvasEl 1000.0
@@ -33,7 +49,7 @@ drawState ctx { screen, snake } =
     withContext ctx $ do
       Canvas.setStrokeStyle ctx "red"
       Canvas.setFillStyle ctx "pink"
-      for_ snake drawBodyPart
+      for_ (Game.body snake) drawBodyPart
   drawBodyPart bodyPos = do
     let 
       { x, y } = toCanvasPoint bodyPos
