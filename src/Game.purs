@@ -51,6 +51,14 @@ data Direction
     | Left
     | Right
 
+derive instance eqDirection :: Eq Direction
+
+opposite :: Direction -> Direction
+opposite Up = Down
+opposite Down = Up
+opposite Left = Right
+opposite Right = Left
+
 iter :: State -> State
 iter state =
     state { snake = move state.snake }
@@ -69,3 +77,9 @@ translate Up { x, y } = { x, y: y-1 }
 translate Down { x, y } = { x, y: y+1 }
 translate Left { x, y } = { x: x-1, y }
 translate Right { x, y } = { x: x+1, y }
+
+changeDirection :: Direction -> State -> State
+changeDirection newDirection state
+    | state.snake.direction /= opposite newDirection = 
+        state { snake = state.snake { direction = newDirection } }
+    | otherwise = state
