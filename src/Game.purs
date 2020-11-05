@@ -30,16 +30,18 @@ initialize :: Screen -> State
 initialize screen =
     { screen
     , snake: 
-        { head: mid
-        , tail: [ translate Left mid, translate Left (translate Left mid) ]
+        { head
+        , tail: [ middle, arse ]
         , direction: Right
         }
     }
     where
-    mid =
+    head =
         { x: screen.width `div` 2
         , y: screen.height `div` 2
         }
+    middle = translate Left head
+    arse = translate Left middle
 
 data Direction
     = Up
