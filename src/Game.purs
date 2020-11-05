@@ -18,7 +18,8 @@ type Screen =
 type Snake = 
     { head :: Coord
     , tail :: Array Coord
-    , direction :: Direction
+    , curDirection :: Direction
+    , nextDirection :: Direction
     }
 
 type State =
@@ -32,7 +33,8 @@ initialize screen =
     , snake: 
         { head
         , tail: [ middle, arse ]
-        , direction: Right
+        , curDirection: Right
+        , nextDirection: Right
         }
     }
     where
@@ -63,9 +65,9 @@ iter state =
 
 move :: Snake -> Snake
 move snake = 
-    snake { head = newHead, tail = newTail }
+    snake { head = newHead, tail = newTail, curDirection = snake.nextDirection }
     where
-    newHead = translate snake.direction snake.head
+    newHead = translate snake.nextDirection snake.head
     newTail = fromMaybe [] do
         { init } <- Array.unsnoc snake.tail
         pure $ Array.cons snake.head init
@@ -78,6 +80,6 @@ translate Right { x, y } = { x: x+1, y }
 
 changeDirection :: Direction -> State -> State
 changeDirection newDirection state
-    | state.snake.direction /= opposite newDirection = 
-        state { snake = state.snake { direction = newDirection } }
+    | state.snake.curDirection /= opposite newDirection = 
+        state { snake = state.snake { nextDirection = newDirection } }
     | otherwise = state
