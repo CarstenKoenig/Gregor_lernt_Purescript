@@ -4,67 +4,46 @@ import Prelude
 
 import Data.Foldable (for_)
 import Data.Int (toNumber)
-import Data.Maybe (Maybe(..), fromMaybe)
 import Effect (Effect)
-import Effect.Console (log)
 import Game as Game
 import Graphics.Canvas (CanvasElement, Context2D, getCanvasElementById, getContext2D, withContext)
 import Graphics.Canvas as Canvas
-import Signal (Signal, (~>))
-import Signal (constant, filterMap, foldp, merge, mergeMany, runSignal) as Signal
-import Signal.DOM (animationFrame, keyPressed) as Signal
-import Signal.Effect (foldEffect) as Signal
+import Loop as Loop
 
 main :: Effect Unit
 main = do
-  log "Hey - Purescript is working"
-  game <- Game.newApple $ Game.initialize { width: 50, height: 50 }
   canvasElement <- getCanvasElementById "game"
-  stateSig <- stateSignal game
-  for_ canvasElement $ drawSignal stateSig >>> Signal.runSignal
+  for_ canvasElement $ \el -> do
+    let config = loopConfig el
+    Loop.run config
 
-stateSignal :: Game.State -> Effect (Signal Game.State)
-stateSignal init = do
-  dirSignal <- directionSignal
-  iSignal <- iterSignal <$> frameSignal
-  (iSignal `Signal.merge` dirSignal) # Signal.foldEffect (\change state -> change state) init
+data Event
+  = Tick Loop.Delta
+  | Input Game.Direction
 
-type Delta = Number
+initGame :: Effect Game.State
+initGame =
+  Game.newApple $ Game.initialize { width: 50, height: 50 }
 
-iterSignal :: Signal Delta -> Signal (Game.State -> Effect Game.State)
-iterSignal deltaSig = deltaSig ~> Game.iter
+update :: Event -> Game.State -> Effect Game.State
+update (Tick delta) = Game.iter delta
+update (Input dir) = Game.changeDirection dir >>> pure
 
-frameSignal :: Effect (Signal Delta)
-frameSignal = do
-  animFrameSig <- Signal.animationFrame
-  pure $ animFrameSig
-    # Signal.foldp calcDelta Nothing
-    # Signal.filterMap (map _.delta) 0.0
+loopConfig :: CanvasElement -> Loop.Config Game.State Event
+loopConfig canvasElement =
+    { tickEvent: Tick
+    , keyEvents: keys
+    , getInitialState: initGame
+    , update
+    , view: drawGame canvasElement
+    }
   where
-  calcDelta curTime Nothing = Just { lastTime: curTime, delta: 0.0 }
-  calcDelta curTime (Just { lastTime }) = Just { lastTime: curTime, delta: curTime - lastTime }
-
-directionSignal :: Effect (Signal (Game.State -> Effect Game.State))
-directionSignal = do
-  left <- keySignal 37 Game.Left
-  right <- keySignal 39 Game.Right
-  up <- keySignal 38 Game.Up
-  down <- keySignal 40 Game.Down
-  pure $ fromMaybe doNothingSignal $ Signal.mergeMany [ left, right, up, down ]
-  where
-  doNothingSignal :: Signal (Game.State -> Effect Game.State)
-  doNothingSignal = Signal.constant (identity >>> pure)
-  keySignal :: Int -> Game.Direction -> Effect (Signal (Game.State -> Effect Game.State))
-  keySignal code dir = do
-    signal <- Signal.keyPressed code 
-    pure $ signal ~> onDown dir
-  onDown :: Game.Direction -> Boolean -> (Game.State -> Effect Game.State)
-  onDown dir true = Game.changeDirection dir >>> pure
-  onDown _ false = identity >>> pure
-
-drawSignal :: Signal Game.State -> CanvasElement -> Signal (Effect Unit)
-drawSignal stateSig canvasElement =
-  stateSig ~> drawGame canvasElement 
+  keys =
+    [ { keyCode: 37, event: Input Game.Left }
+    , { keyCode: 39, event: Input Game.Right }
+    , { keyCode: 38, event: Input Game.Up }
+    , { keyCode: 40, event: Input Game.Down }
+    ]
 
 drawGame :: CanvasElement -> Game.State -> Effect Unit
 drawGame canvasEl game = do
