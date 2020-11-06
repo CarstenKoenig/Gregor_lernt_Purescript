@@ -59,36 +59,26 @@ drawState ctx { screen, snake, apple } = do
   drawSnake
   where
   drawApple applePos =
-    withContext ctx $ do
-      Canvas.setStrokeStyle ctx "green"
-      Canvas.setFillStyle ctx "lightgreen"
-      drawBodyPart applePos
-  drawSnake =
-    withContext ctx $ do
-      if Game.isDead snake then do
-        Canvas.setStrokeStyle ctx "grey"
-        Canvas.setFillStyle ctx "black"
-      else do
-        Canvas.setStrokeStyle ctx "pink"
-        Canvas.setFillStyle ctx "red"
-      for_ snake.tail drawBodyPart
-      if Game.isDead snake then do
-        Canvas.setStrokeStyle ctx "black"
-        Canvas.setFillStyle ctx "grey"
-      else do
-        Canvas.setStrokeStyle ctx "red"
-        Canvas.setFillStyle ctx "pink"
-      drawBodyPart snake.head
-  drawBodyPart bodyPos = do
+    drawRectTo "green" "lightgreen" applePos
+  drawSnake = do
+    for_ snake.tail (drawRectTo strokeTail fillTail)
+    drawRectTo strokeHead fillHead snake.head
+    where
+    strokeHead | Game.isDead snake = "black"
+    strokeHead | otherwise = "red"
+    fillHead | Game.isDead snake = "grey"
+    fillHead | otherwise = "pink"
+    strokeTail = fillHead
+    fillTail = strokeHead
+  drawRectTo colorStroke colorFill pos = do
     let 
-      { x, y } = toCanvasPoint bodyPos
-      bodyRectangle =
-        { x, y
-        , width: dX
-        , height: dY
-        }
-    Canvas.fillRect ctx bodyRectangle
-    Canvas.strokeRect ctx bodyRectangle
+      { x, y } = toCanvasPoint pos
+      rect = { x, y, width: dX, height: dY }
+    withContext ctx do
+      Canvas.setStrokeStyle ctx colorStroke
+      Canvas.setFillStyle ctx colorFill
+      Canvas.fillRect ctx rect
+      Canvas.strokeRect ctx rect
   toCanvasPoint { x, y} =
     { x: toNumber x * dX
     , y: toNumber y * dY
