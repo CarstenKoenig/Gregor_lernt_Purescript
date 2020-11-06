@@ -7,7 +7,6 @@ import Data.Array as Array
 import Data.Foldable (class Foldable)
 import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Effect (Effect)
-import Effect.Class.Console (log)
 import Effect.Random (randomInt)
 
 type Coord = 
@@ -21,8 +20,8 @@ isInside pos poss =
 
 randomCoord :: Screen -> Effect Coord
 randomCoord screen = do
-    x <- randomInt 0 screen.width
-    y <- randomInt 0 screen.height
+    x <- randomInt 0 (screen.width - 1)
+    y <- randomInt 0 (screen.height - 1)
     pure { x, y }
 
 type Screen =
