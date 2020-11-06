@@ -1,170 +1,47 @@
-module Game where
+module Game 
+    ( run
+    ) where
 
 import Prelude
 
-import Data.Array (any)
-import Data.Array as Array
-import Data.Foldable (class Foldable)
-import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Effect (Effect)
-import Effect.Random (randomInt)
+import Game.Canvas as Canvas
+import Game.Direction (Direction)
+import Game.Direction as Direction
+import Game.State (State)
+import Game.State as State
+import Graphics.Canvas (CanvasElement)
+import Loop as Loop
 
-type Coord = 
-    { x :: Int
-    , y :: Int
+run :: CanvasElement -> Effect Unit
+run canvasElement = do
+    let config = loopConfig canvasElement
+    Loop.run config
+
+data Event
+  = Tick Loop.Delta
+  | Input Direction
+
+initState :: Effect State
+initState =
+  State.newApple $ State.initialize { width: 50, height: 50 }
+
+update :: Event -> State -> Effect State
+update (Tick delta) = State.iter delta
+update (Input dir) = State.changeDirection dir >>> pure
+
+loopConfig :: CanvasElement -> Loop.Config State Event
+loopConfig canvasElement =
+    { tickEvent: Tick
+    , keyEvents: keys
+    , getInitialState: initState
+    , update
+    , view: Canvas.drawState canvasElement
     }
-
-isInside :: forall f. Foldable f => Coord -> f Coord -> Boolean
-isInside pos poss =
-    any (_ == pos) poss
-
-randomCoord :: Screen -> Effect Coord
-randomCoord screen = do
-    x <- randomInt 0 (screen.width - 1)
-    y <- randomInt 0 (screen.height - 1)
-    pure { x, y }
-
-type Screen =
-    { width :: Int
-    , height :: Int
-    }
-
-warp :: Screen -> Coord -> Coord
-warp { width, height } { x, y } =
-    { x: x `mod` width 
-    , y: y `mod` height
-    }
-
-type Snake = 
-    { head :: Coord
-    , tail :: Array Coord
-    , curDirection :: Direction
-    , nextDirection :: Direction
-    }
-
-body :: Snake -> Array Coord
-body snake =
-    snake.head `Array.cons` snake.tail
-
-isDead :: Snake -> Boolean
-isDead snake =
-    snake.head `isInside` snake.tail
-
-type Time = Number
-
-type State =
-    { screen :: Screen
-    , snake :: Snake
-    , apple :: Maybe Coord
-    , stepEvery :: Time
-    , timeToNextStep :: Time
-    }
-
-initialize :: Screen -> State
-initialize screen =
-    { screen
-    , snake: 
-        { head
-        , tail: [ middle, arse ]
-        , curDirection: Right
-        , nextDirection: Right
-        }
-    , apple: Nothing
-    , stepEvery: 500.0
-    , timeToNextStep: 500.0
-    }
-    where
-    head =
-        { x: screen.width `div` 2
-        , y: screen.height `div` 2
-        }
-    middle = translate Left head
-    arse = translate Left middle
-
-data Direction
-    = Up
-    | Down
-    | Left
-    | Right
-
-derive instance eqDirection :: Eq Direction
-
-opposite :: Direction -> Direction
-opposite Up = Down
-opposite Down = Up
-opposite Left = Right
-opposite Right = Left
-
-iter :: Time -> State -> Effect State
-iter delta state =
-    go $ state { timeToNextStep = state.timeToNextStep - delta }
-    where
-    go :: State -> Effect State
-    go s 
-        | s.timeToNextStep <= 0.0 = do
-            stepped <- step s
-            go $ stepped { timeToNextStep = s.timeToNextStep + s.stepEvery }
-        | otherwise = pure s
-
-step :: State -> Effect State
-step state | isDead state.snake = pure state
-step state = do
-    let eaten = tryEat state
-    withApple <- newApple eaten
-    let moved = withApple { snake = move withApple.screen withApple.snake }
-    pure moved
-
-move :: Screen -> Snake -> Snake
-move screen snake = 
-    snake { head = newHead
-          , tail = newTail
-          , curDirection = snake.nextDirection }
-    where
-    newHead = warp screen $ translate snake.nextDirection snake.head
-    newTail = fromMaybe [] do
-        { init } <- Array.unsnoc snake.tail
-        pure $ Array.cons snake.head init
-
-tryEat :: State -> State
-tryEat state@{ snake, apple } 
-    | apple == Just snake.head =
-        state { apple = Nothing
-              , snake = grow snake 
-              , stepEvery = state.stepEvery * 0.9
-              }
-tryEat state = state
-
-grow :: Snake -> Snake
-grow snake =
-    snake { tail = newTail }
-    where
-    newTail = fromMaybe [ snake.head ] $ do
-        { last } <- Array.unsnoc snake.tail
-        pure $ Array.snoc snake.tail last
-
-newApple :: State -> Effect State
-newApple state
-    | isJust state.apple = 
-        pure state
-    | otherwise = do
-        pos <- findApple
-        pure $ state { apple = Just pos }
-    where
-      findApple = do
-        pos <- randomCoord state.screen
-        if not (pos `isInside` body state.snake) then
-            pure pos
-        else
-            findApple
-
-translate :: Direction -> Coord -> Coord
-translate Up { x, y } = { x, y: y-1 }
-translate Down { x, y } = { x, y: y+1 }
-translate Left { x, y } = { x: x-1, y }
-translate Right { x, y } = { x: x+1, y }
-
-changeDirection :: Direction -> State -> State
-changeDirection newDirection state
-    | state.snake.curDirection /= opposite newDirection = 
-        state { snake = state.snake { nextDirection = newDirection } }
-    | otherwise = state
+  where
+  keys =
+    [ { keyCode: 37, event: Input Direction.Left }
+    , { keyCode: 39, event: Input Direction.Right }
+    , { keyCode: 38, event: Input Direction.Up }
+    , { keyCode: 40, event: Input Direction.Down }
+    ]
