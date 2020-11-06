@@ -33,3 +33,5 @@ Meines Wissens gibt es leider im Moment keinen einfachen Weg das aufzuräumen - 
 Im Branch [SnakeStart](https://github.com/CarstenKoenig/Gregor_lernt_Purescript/tree/SnakeStart) findet ihr einen Startpunkt für eigenes Coding.
 
 Das Fertige Spiel ist unter [https://github.com/CarstenKoenig/Gregor_lernt_Purescript/tree/Snake] zu finden.
+
+**TIPP:** Wenn ihr euch anschauen wollt, wie ich das Spiel iterativ gebaut habe, dann schaut doch mal in die [Commit History vom Snake-Branch](https://github.com/CarstenKoenig/Gregor_lernt_Purescript/commits/Snake)
