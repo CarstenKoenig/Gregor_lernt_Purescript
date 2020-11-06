@@ -5,12 +5,8 @@ module Game
 import Prelude
 
 import Effect (Effect)
-import Game.Canvas as Canvas
-import Game.Direction (Direction)
-import Game.Direction as Direction
-import Game.State (State)
-import Game.State as State
-import Graphics.Canvas (CanvasElement)
+import Graphics.Canvas (CanvasElement, getContext2D, withContext)
+import Graphics.Canvas as Canvas
 import Loop as Loop
 
 run :: CanvasElement -> Effect Unit
@@ -20,15 +16,31 @@ run canvasElement = do
 
 data Event
   = Tick Loop.Delta
-  | Input Direction
+  | NoOp
+
+type State =
+    {
+
+    }
 
 initState :: Effect State
-initState =
-  State.newApple $ State.initialize { width: 50, height: 50 }
+initState = pure { }
 
 update :: Event -> State -> Effect State
-update (Tick delta) = State.iter delta
-update (Input dir) = State.changeDirection dir >>> pure
+update NoOp state = pure state
+update (Tick delta) state = pure state
+
+drawState :: CanvasElement -> State -> Effect Unit
+drawState canvas _ = do
+    Canvas.setCanvasWidth canvas 1000.0
+    Canvas.setCanvasHeight canvas 1000.0
+    ctx <- getContext2D canvas
+    withContext ctx do
+        Canvas.setFillStyle ctx "green"
+        Canvas.fillRect ctx { x: 100.0, y: 100.0, width: 100.0, height: 100.0 }
+
+-- ====================================================
+-- Setup Game-Loop
 
 loopConfig :: CanvasElement -> Loop.Config State Event
 loopConfig canvasElement =
@@ -36,12 +48,12 @@ loopConfig canvasElement =
     , keyEvents: keys
     , getInitialState: initState
     , update
-    , view: Canvas.drawState canvasElement
+    , view: drawState canvasElement
     }
   where
   keys =
-    [ { keyCode: 37, event: Input Direction.Left }
-    , { keyCode: 39, event: Input Direction.Right }
-    , { keyCode: 38, event: Input Direction.Up }
-    , { keyCode: 40, event: Input Direction.Down }
+    [ { keyCode: 37, event: NoOp }
+    , { keyCode: 39, event: NoOp }
+    , { keyCode: 38, event: NoOp }
+    , { keyCode: 40, event: NoOp }
     ]
