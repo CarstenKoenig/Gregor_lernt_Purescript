@@ -7,6 +7,7 @@ import Data.Array as Array
 import Data.Foldable (class Foldable)
 import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Effect (Effect)
+import Effect.Class.Console (log)
 import Effect.Random (randomInt)
 
 type Coord = 
@@ -50,10 +51,14 @@ isDead :: Snake -> Boolean
 isDead snake =
     snake.head `isInside` snake.tail
 
+type Time = Number
+
 type State =
     { screen :: Screen
     , snake :: Snake
     , apple :: Maybe Coord
+    , stepEvery :: Time
+    , timeToNextStep :: Time
     }
 
 initialize :: Screen -> State
@@ -66,6 +71,8 @@ initialize screen =
         , nextDirection: Right
         }
     , apple: Nothing
+    , stepEvery: 500.0
+    , timeToNextStep: 500.0
     }
     where
     head =
@@ -89,9 +96,20 @@ opposite Down = Up
 opposite Left = Right
 opposite Right = Left
 
-iter :: State -> Effect State
-iter state | isDead state.snake = pure state
-iter state = do
+iter :: Time -> State -> Effect State
+iter delta state =
+    go $ state { timeToNextStep = state.timeToNextStep - delta }
+    where
+    go :: State -> Effect State
+    go s 
+        | s.timeToNextStep <= 0.0 = do
+            stepped <- step s
+            go $ stepped { timeToNextStep = s.timeToNextStep + s.stepEvery }
+        | otherwise = pure s
+
+step :: State -> Effect State
+step state | isDead state.snake = pure state
+step state = do
     let eaten = tryEat state
     withApple <- newApple eaten
     let moved = withApple { snake = move withApple.screen withApple.snake }
@@ -111,7 +129,10 @@ move screen snake =
 tryEat :: State -> State
 tryEat state@{ snake, apple } 
     | apple == Just snake.head =
-        state { apple = Nothing, snake = grow snake }
+        state { apple = Nothing
+              , snake = grow snake 
+              , stepEvery = state.stepEvery * 0.9
+              }
 tryEat state = state
 
 grow :: Snake -> Snake

@@ -4,17 +4,16 @@ import Prelude
 
 import Data.Foldable (for_)
 import Data.Int (toNumber)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe)
 import Effect (Effect)
 import Effect.Console (log)
 import Game as Game
 import Graphics.Canvas (CanvasElement, Context2D, getCanvasElementById, getContext2D, withContext)
 import Graphics.Canvas as Canvas
 import Signal (Signal, (~>))
-import Signal (constant, merge, mergeMany, runSignal) as Signal
-import Signal.DOM (keyPressed) as Signal
+import Signal (constant, filterMap, foldp, merge, mergeMany, runSignal) as Signal
+import Signal.DOM (animationFrame, keyPressed) as Signal
 import Signal.Effect (foldEffect) as Signal
-import Signal.Time (every) as Signal
 
 main :: Effect Unit
 main = do
@@ -27,10 +26,23 @@ main = do
 stateSignal :: Game.State -> Effect (Signal Game.State)
 stateSignal init = do
   dirSignal <- directionSignal
-  (tickSignal `Signal.merge` dirSignal) # Signal.foldEffect (\change state -> change state) init
+  iSignal <- iterSignal <$> frameSignal
+  (iSignal `Signal.merge` dirSignal) # Signal.foldEffect (\change state -> change state) init
 
-tickSignal :: Signal (Game.State -> Effect Game.State)
-tickSignal = Signal.every 500.0 $> Game.iter
+type Delta = Number
+
+iterSignal :: Signal Delta -> Signal (Game.State -> Effect Game.State)
+iterSignal deltaSig = deltaSig ~> Game.iter
+
+frameSignal :: Effect (Signal Delta)
+frameSignal = do
+  animFrameSig <- Signal.animationFrame
+  pure $ animFrameSig
+    # Signal.foldp calcDelta Nothing
+    # Signal.filterMap (map _.delta) 0.0
+  where
+  calcDelta curTime Nothing = Just { lastTime: curTime, delta: 0.0 }
+  calcDelta curTime (Just { lastTime }) = Just { lastTime: curTime, delta: curTime - lastTime }
 
 directionSignal :: Effect (Signal (Game.State -> Effect Game.State))
 directionSignal = do
